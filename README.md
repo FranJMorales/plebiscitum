@@ -36,15 +36,16 @@ todavía. Si en el futuro se implementan, se pueden volver a añadir.
 - **Backend**: [Supabase](https://supabase.com) (Postgres, Auth, Edge Functions, Vault, pg_cron, pg_net)
 - **Hosting**: Hostinger (estático) + `api/boe.php` (proxy al RSS del BOE, solo para el ticker de la home)
 - **Email**: Resend
-- **IA**: Anthropic (clasificación y traducción a lenguaje claro de las disposiciones del BOE)
+- **IA**: Anthropic (traducción a lenguaje claro de todas las disposiciones de la Sección I del BOE, sin filtrar por relevancia)
 
 ## Ciclo de vida de una iniciativa (automatizado)
 
 1. **Ingesta diaria** (`supabase/functions/ingesta-boe`, cron `0 8 * * *`): llama a la
    API oficial de datos abiertos del BOE, se queda con la Sección I (disposiciones
-   generales: leyes, reales decretos, órdenes de alcance general) y usa un modelo de
-   IA para decidir si cada una es relevante para la ciudadanía y traducirla a lenguaje
-   llano. Inserta el resultado en `iniciativas` (idempotente por `boe_id`).
+   generales: leyes, reales decretos, órdenes de alcance general — es decir, decisiones
+   normativas que se están tomando) y usa un modelo de IA para traducir CADA UNA a
+   lenguaje llano, sin filtrar por relevancia: se publican todas. Inserta el resultado
+   en `iniciativas` (idempotente por `boe_id`).
 2. **Notificación a usuarios registrados** (trigger `on_iniciativa_publicada`): al
    publicarse una iniciativa nueva, se avisa por email a todas las cuentas registradas.
 3. **Votación**: cualquier persona registrada (DNI/NIE + teléfono verificados) vota

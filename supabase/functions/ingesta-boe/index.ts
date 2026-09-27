@@ -2,9 +2,10 @@
 //
 // Llama a la API oficial de datos abiertos del BOE (sumario diario), se queda
 // solo con la Sección I ("Disposiciones generales" — leyes, reales decretos,
-// decretos-ley, órdenes con alcance general), usa un modelo de IA para decidir
-// si cada disposición es relevante para la opinión ciudadana y para traducirla
-// a lenguaje llano, y guarda el resultado en la tabla `iniciativas`.
+// decretos-ley, órdenes con alcance general: es decir, decisiones normativas
+// que se están tomando) y usa IA únicamente para TRADUCIR cada una a lenguaje
+// llano — sin filtrar por relevancia: se publican todas las decisiones de esa
+// sección, tal y como pidió el propietario de la plataforma.
 //
 // Se invoca vía pg_cron (ver migración `programar_ingesta_boe`) con un secreto
 // compartido en la cabecera `x-cron-secret`, o manualmente para pruebas.
@@ -133,7 +134,7 @@ Deno.serve(async (req: Request) => {
     const items: ItemBOE[] = [];
     recolectarItems(sumarioJson, {}, items);
 
-    const relevantesPorSeccion = items.filter((item) => {
+    const itemsSeccion1 = items.filter((item) => {
       const codigoSeccion = extraerTexto((item._seccion as Record<string, unknown>)?.["codigo"] ?? item._seccion);
       return codigoSeccion === SECCION_RELEVANTE;
     });
@@ -141,7 +142,7 @@ Deno.serve(async (req: Request) => {
     let insertadas = 0;
     const errores: string[] = [];
 
-    for (const item of relevantesPorSeccion) {
+    for (const item of itemsSeccion1) {
       try {
         const urlHtml = extraerTexto(item.url_html) ??
           `https://www.boe.es/diario_boe/txt.php?id=${item.identificador}`;
@@ -167,15 +168,15 @@ Deno.serve(async (req: Request) => {
             model: "claude-haiku-4-5",
             max_tokens: 1024,
             system:
-              'Ayudas a una plataforma ciudadana española (Plebiscitum) a decidir qué normas del BOE son ' +
-              'relevantes para que la ciudadanía opine, y a traducirlas a lenguaje llano. ' +
+              'Traduces normas oficiales del BOE a lenguaje llano para una plataforma ciudadana ' +
+              'española (Plebiscitum), que publica TODAS las decisiones normativas de esta sección ' +
+              'del BOE para que la ciudadanía opine, sin filtrar por relevancia. ' +
               'Responde EXCLUSIVAMENTE con un objeto JSON válido (sin texto adicional, sin markdown) con esta forma: ' +
-              '{"relevante": boolean, "titulo_claro": string, "resumen_claro": string}. ' +
-              '"relevante" es true solo para normas con impacto directo y significativo en la vida de la ciudadanía ' +
-              '(leyes, reales decretos, decretos-ley, reglamentos de alcance general); false para nombramientos, ' +
-              'subvenciones puntuales, convenios administrativos, anuncios o trámites internos. ' +
-              '"titulo_claro": máximo 15 palabras, lenguaje llano. ' +
-              '"resumen_claro": 2 a 4 frases en español sencillo, sin jerga jurídica, explicando qué cambia y a quién afecta.',
+              '{"titulo_claro": string, "resumen_claro": string}. ' +
+              '"titulo_claro": máximo 15 palabras, lenguaje llano, fiel al contenido real de la norma. ' +
+              '"resumen_claro": 2 a 4 frases en español sencillo, sin jerga jurídica, explicando qué dice ' +
+              'la norma, qué cambia y a quién afecta — aunque sea un trámite técnico o administrativo, ' +
+              'explica en claro de qué se trata.',
             messages: [
               {
                 role: "user",
@@ -196,7 +197,8 @@ Deno.serve(async (req: Request) => {
         const textoRespuesta = cuerpoIA?.content?.[0]?.text ?? "";
         const resultado = extraerJson(textoRespuesta);
 
-        if (!resultado || resultado.relevante !== true) {
+        if (!resultado || !resultado.resumen_claro) {
+          errores.push(`Respuesta de IA sin JSON valido para ${item.identificador}`);
           continue;
         }
 
@@ -231,7 +233,7 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         fecha: fechaIso,
-        items_seccion_1: relevantesPorSeccion.length,
+        items_seccion_1: itemsSeccion1.length,
         insertadas,
         errores,
       }),
