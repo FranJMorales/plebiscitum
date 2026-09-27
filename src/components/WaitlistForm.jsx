@@ -18,6 +18,7 @@ import { validarDniNie, validarTelefonoEspanol } from '../lib/dniValidator';
 // el email, el trigger on_auth_user_created crea su fila en "profiles" automáticamente
 // con el nombre, el hash del DNI y el teléfono ya guardados.
 export default function WaitlistForm() {
+  const [modo, setModo] = useState('registro'); // 'registro' | 'login'
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [dniNie, setDniNie] = useState('');
@@ -28,6 +29,24 @@ export default function WaitlistForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (modo === 'login') {
+      if (!email) return;
+      setError(null);
+      setLoading(true);
+      const { data, error: fnError } = await supabase.functions.invoke('iniciar-sesion', {
+        body: { email: email.trim() },
+      });
+      if (fnError || data?.error) {
+        setError(data?.error || 'No se pudo enviar el enlace de acceso. Inténtalo de nuevo.');
+        setLoading(false);
+        return;
+      }
+      setSent(true);
+      setLoading(false);
+      return;
+    }
+
     if (!fullName || !email || !dniNie || !phone) return;
 
     setError(null);
@@ -81,8 +100,8 @@ export default function WaitlistForm() {
         </div>
         <h4 className="text-lg font-bold text-green-400 mb-2">¡Ya casi estás dentro!</h4>
         <p className="text-sm text-smoke-grey/60 mb-2">
-          Te hemos enviado un enlace de acceso a tu correo. Ábrelo para confirmar tu
-          registro y entrar en Plebiscitum — no necesitas ninguna contraseña.
+          Te hemos enviado un enlace de acceso a tu correo. Ábrelo para entrar en
+          Plebiscitum — no necesitas ninguna contraseña.
         </p>
         <p className="text-sm font-semibold text-smoke-grey/80">
           Revisa tu carpeta de SPAM o correo no deseado si no lo ves en un par de minutos.
@@ -98,9 +117,13 @@ export default function WaitlistForm() {
       transition={{ delay: 0.4 }}
       className="glass-panel p-1 w-full max-w-md mx-auto rounded-3xl p-8 text-left shadow-2xl shadow-midnight-depth"
     >
-      <h3 className="text-2xl font-bold mb-2">Únete a la Revolución</h3>
+      <h3 className="text-2xl font-bold mb-2">
+        {modo === 'registro' ? 'Únete a la Revolución' : 'Bienvenido de nuevo'}
+      </h3>
       <p className="text-smoke-grey/50 text-sm mb-8">
-        Regístrate para el acceso anticipado y sé parte del cambio.
+        {modo === 'registro'
+          ? 'Regístrate para el acceso anticipado y sé parte del cambio.'
+          : 'Te enviamos un enlace de acceso a tu email, sin contraseñas.'}
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -110,16 +133,18 @@ export default function WaitlistForm() {
           </div>
         )}
 
-        <div>
-          <input
-            type="text"
-            required
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            placeholder="Tu nombre y Apellidos"
-            className="w-full bg-midnight-depth/50 border border-smoke-grey/10 rounded-xl px-4 py-3 text-smoke-grey focus:outline-none focus:border-turquoise/50 transition-all z-20 relative"
-          />
-        </div>
+        {modo === 'registro' && (
+          <div>
+            <input
+              type="text"
+              required
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="Tu nombre y Apellidos"
+              className="w-full bg-midnight-depth/50 border border-smoke-grey/10 rounded-xl px-4 py-3 text-smoke-grey focus:outline-none focus:border-turquoise/50 transition-all z-20 relative"
+            />
+          </div>
+        )}
 
         <div>
           <input
@@ -132,30 +157,34 @@ export default function WaitlistForm() {
           />
         </div>
 
-        <div>
-          <input
-            type="text"
-            required
-            value={dniNie}
-            onChange={(e) => setDniNie(e.target.value)}
-            placeholder="Tu DNI o NIE (ej. 12345678Z)"
-            className="w-full bg-midnight-depth/50 border border-smoke-grey/10 rounded-xl px-4 py-3 text-smoke-grey focus:outline-none focus:border-turquoise/50 transition-all z-20 relative"
-          />
-          <p className="text-xs text-smoke-grey/40 mt-1 px-1">
-            Solo guardamos un hash irreversible de tu DNI/NIE, nunca el número en claro.
-          </p>
-        </div>
+        {modo === 'registro' && (
+          <>
+            <div>
+              <input
+                type="text"
+                required
+                value={dniNie}
+                onChange={(e) => setDniNie(e.target.value)}
+                placeholder="Tu DNI o NIE (ej. 12345678Z)"
+                className="w-full bg-midnight-depth/50 border border-smoke-grey/10 rounded-xl px-4 py-3 text-smoke-grey focus:outline-none focus:border-turquoise/50 transition-all z-20 relative"
+              />
+              <p className="text-xs text-smoke-grey/40 mt-1 px-1">
+                Solo guardamos un hash irreversible de tu DNI/NIE, nunca el número en claro.
+              </p>
+            </div>
 
-        <div>
-          <input
-            type="tel"
-            required
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="Tu móvil (ej. 612345678)"
-            className="w-full bg-midnight-depth/50 border border-smoke-grey/10 rounded-xl px-4 py-3 text-smoke-grey focus:outline-none focus:border-turquoise/50 transition-all z-20 relative"
-          />
-        </div>
+            <div>
+              <input
+                type="tel"
+                required
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="Tu móvil (ej. 612345678)"
+                className="w-full bg-midnight-depth/50 border border-smoke-grey/10 rounded-xl px-4 py-3 text-smoke-grey focus:outline-none focus:border-turquoise/50 transition-all z-20 relative"
+              />
+            </div>
+          </>
+        )}
 
         <button
           type="submit"
@@ -164,9 +193,22 @@ export default function WaitlistForm() {
         >
           {loading ? (
             <span className="animate-spin w-5 h-5 border-2 border-white/20 border-t-white rounded-full" />
-          ) : (
+          ) : modo === 'registro' ? (
             'Enviarme el enlace de acceso'
+          ) : (
+            'Enviarme el enlace de entrada'
           )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setError(null);
+            setModo(modo === 'registro' ? 'login' : 'registro');
+          }}
+          className="w-full text-center text-xs text-smoke-grey/40 hover:text-turquoise transition-colors underline underline-offset-2"
+        >
+          {modo === 'registro' ? '¿Ya tienes cuenta? Inicia sesión' : '¿Aún no tienes cuenta? Regístrate'}
         </button>
       </form>
     </motion.div>

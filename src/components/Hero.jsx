@@ -3,7 +3,7 @@ import WaitlistForm from './WaitlistForm';
 
 export default function Hero() {
   return (
-    <section className="relative pt-32 pb-20 px-6 min-h-screen flex flex-col items-center justify-center overflow-hidden mesh-gradient">
+    <section id="hero" className="relative pt-32 pb-20 px-6 min-h-screen flex flex-col items-center justify-center overflow-hidden mesh-gradient">
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-600/20 blur-[140px] rounded-full animate-pulse" />
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-600/20 blur-[140px] rounded-full animate-pulse delay-1000" />
 
